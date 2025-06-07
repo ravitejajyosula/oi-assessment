@@ -1,0 +1,70 @@
+# Default values for apps-deployment-engine.
+global:
+  applications:
+    - name: oi-oi-backend-api
+      replicaCount: 2
+      labels:
+        tier: backend
+      image:
+        repository: image-registry.oi.com/oi-oi-backend-api
+        tag: v1.9.0 # This will be replaced by the latest tag from the CI/CD pipeline after successful deployment of the backend API
+        pullPolicy: IfNotPresent
+      workingDir: /app
+      containerPorts:
+        - containerPort: 8080
+      env:
+        - name: DB_HOST
+          value: oi-db-service
+        - name: DB_PORT
+          value: "5432"
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+        limits:
+          cpu: 1
+          memory: 1Gi
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      nodeSelector:
+        app-role: backend-worker
+      affinity: {}
+      tolerations: []
+      imagePullSecrets:
+        - name: oi-docker-pull-secret
+      livenessProbe:
+        enabled: true
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        timeoutSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+        tcpSocket:
+          port: 8080
+      readinessProbe:
+        enabled: true
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+      service:
+        enabled: true
+        name: oi-backend-api
+        ports:
+          - port: 8080
+            targetPort: 8080
+            protocol: TCP
+            name: http
+        type: ClusterIP
+        serviceAnnotations: {}

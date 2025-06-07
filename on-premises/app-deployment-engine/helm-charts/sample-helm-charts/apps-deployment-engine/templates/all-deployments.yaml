@@ -1,0 +1,5 @@
+# apps-deployment-engine/templates/all-deployments.yaml
+{{- range .Values.global.applications }}
+{{- include "apps-deployment-engine.deployment" (dict "app" . "root" $) }} 
+---
+{{- end }}

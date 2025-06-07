@@ -1,0 +1,6 @@
+apiVersion: v2
+name: postgres-db
+description: High-Availability PostgreSQL with Vault-managed secrets
+version: 0.1.0
+appVersion: "15"
+dependencies: []

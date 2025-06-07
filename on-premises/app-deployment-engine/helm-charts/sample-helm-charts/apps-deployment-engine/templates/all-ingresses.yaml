@@ -1,0 +1,7 @@
+# apps-deployment-engine/templates/all-ingresses.yaml
+{{- range .Values.global.applications }}
+{{- if .ingress.enabled }}
+{{- include "apps-deployment-engine.ingress" (dict "app" . "root" $) }} 
+---
+{{- end }}
+{{- end }}

@@ -1,0 +1,6 @@
+{{- range .Values.global.applications }}
+{{- if .service.enabled }}
+{{- include "apps-deployment-engine.service" (dict "app" . "root" $) }}
+---
+{{- end }}
+{{- end }}

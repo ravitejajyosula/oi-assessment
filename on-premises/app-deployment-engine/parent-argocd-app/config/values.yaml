@@ -1,0 +1,42 @@
+--- 
+global:
+  apps:
+    - name: oi-my-app-frontend-deployment
+      valuesFile: frontend-deployment/config/values.yaml
+      chartFile: frontend-deployment/Chart.yaml
+      namespace: oi-my-app
+      repoURL: git@github.oi.com:platform/oi-my-app-frontend.git
+      targetRevision: main
+      labels:
+        app: oi-my-app-frontend
+
+    - name: oi-my-app-backend-deployment
+      valuesFile: backend/config/values.yaml
+      chartFile: backend/Chart.yaml
+      namespace: oi-my-app
+      repoURL: git@github.oi.com:platform/oi-my-app-backend.git
+      targetRevision: main
+      labels:
+        app: oi-my-app-backend
+
+
+    - name: oi-my-app-database-deployment
+      valuesFile: database-deployment/config/values.yaml
+      chartFile: database-deployment/Chart.yaml
+      namespace: oi-my-app
+      repoURL: git@github.oi.com:platform/oi-my-app-db.git
+      targetRevision: main
+      labels:
+        app: oi-my-app-database
+      
+  argocd:
+    namespace: argocd
+    destinationServer: https://kubernetes.default.svc
+
+  syncPolicy:
+    prune: false
+    selfHeal: true
+  globalLabels:
+    app: oi-my-app
+    environment: on-premises
+    team: app-deployment-engine

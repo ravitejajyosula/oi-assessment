@@ -39,7 +39,7 @@ Refer to `architectural-diagram.jpg`:
 
 6. **Git Integration**: Platform team has access to Github for setting up repositories for Terraform, Ansible, and Helm charts 
 7. **Automation Service Account**: A RBAC is already in place with required access to every system. 
-8. Database Failover or Active/Active Setup is already in Place
+8. Database Failover or Active/Active Setup is already in Place per region and cross region
 
 ---
 
@@ -113,9 +113,9 @@ Key Considerations:
 * Jenkins pipeline stages for validation and apply
 ---
 
-### 4. **Cluster and Microservices Automation**
+### 4. **Cluster, Compliance and Observability Automation**
 
-#### Tool: **Ansible**
+#### Tools: **Ansible, Argocd, Helm, Kyverno, Metallb **
 
 ##### Roles:
 
@@ -160,5 +160,125 @@ Day 1 Operations-2 (ArgoCD Vault Integration, Ingress creation and Argocd Setup)
 Day 1 Operations-3 (Cluster Hardening with Kyverno center policy helm chart, Observability Setup and Parent app creation for Actual workload Applications )
 ```
 Detailed code snippets for [Day0](on-premises/platform-engine/README.md#Day0) and [Day1](on-premises/platform-engine/README.md#Day1) 
+
+---
+
+## [Day2 Operations](#on-premises/app-deployment-engine/README.md#day2-operations)
+
+
+##### Applications deployment:
+
+* Microservices deployed via ArgoCD
+* Separate Github branches for `dev`, `qa`, `prod`
+* Sync policies enable auto-healing, auto-prune
+* Values file per environment for Helm charts
+
+#### New applications or services on boarding process. 
+* whenever new application or service needed to be deployed on the cluster users need to add below lines app-deployment-engine repository under `argocd-apps/config/values.yaml` so that the application or service will be automatically deployed by argocd. 
+* I have also chosen standard helm charts for deployments and statefulset which gives more unified and granular control over environment, in future if we need to add any custom annotation we can directly add to helm for whole environment. (recommended not mandated to developers)
+
+```yaml
+apps:
+  - name: <<user application name >>
+    valuesFile: <<user application values.yaml path >>
+    chartFile: << user chart location >>
+    namespace: <<target namespace >>
+    repoURL: <<repo url>
+    targetRevision: <<branch>>
+    #optional 
+    labels:
+      <<custom labels for argocd applications >>
+## Example 
+  - name: app3
+    valuesFile: app3/config/values.yaml
+    chartFile: frontend-app3/
+    namespace: app3-ns
+    repoURL: git@github.oi.com:platform/oi-my-app3.git
+    targetRevision: uat
+    labels:
+      deployed-for: uat-environment
+
+```
+### Secrets Handling:
+
+* Vault-managed credentials fetched dynamically inside cluster using argocd vault injector plugin(AVP) configuration. 
+
+---
+
+## 6. **Testing Strategy**
+
+### Infrastructure Testing:
+
+* Terraform validation through `terraform validate` & `plan`
+* Validation of every task in ansible before next task
+* Using block and rescue in ansible to get detailed cases if not handled.
+* Ansible dry-run mode (`--check`) on staging environment
+* Health probes via HAProxy ensure API server readiness
+* Liveness and Readiness probes for every object in K8S using Kyverno policy. 
+
+### Cluster Testing:
+
+* Cluster healthz validation once cluster is fully ready using `https://kubernetes.default.svc/healthz`
+* API server responsiveness (`kubectl get nodes`)
+* Node readiness checks and alerts in grafana
+* Calico pod-to-pod communication tests and Service communication validation
+* CSI volume provisioning tests by creating test volumes 
+
+### Integration Tests:
+
+* Ingress availability (e.g., ArgoCD Integration as part of Day1)
+* Prometheus scraping all nodes
+* Fluent-bit log collection
+* ArgoCD application sync status
+
+---
+
+## 7. **Monitoring and Observability**
+
+### Stack:
+For the Production grade cluster its always recommended to have hybrid stack for monitoring and logging. 
+Hybrid stack is recommended because of 
+  - In Multi-cluster environments external observability gives more flexibility giving full environment access in one screen
+  - Simplifies the full view of cluster to monitoring team and SRE team for quick and faster actions 
+  - Easy to deploy because you need install only minimal components on the cluster and also they are common across clusters (fluent-bit and Metrics exporter)
+* **Prometheus**: Cluster metrics (Node, Pod, Container, etc.)
+* **External Grafana**: Dashboards for node, pod health, resource usage
+* **Fluent-bit**: Fluent bit daemonsets on the cluster log shipping 
+* **Alert manager**: Triggers alerts based on thresholds
+* **Kube-state-metrics**: Detailed resource metrics
+* **EFK Stack**:
+  * **Elasticsearch**: Central log storage
+  * **Fluent-bit**: Log forwarding
+  * **Kibana**: Visualization & search
+
+### Alerts:
+
+* API unresponsive
+* Node NotReady
+* Pod CrashLoopBackOff
+* PVC provisioning failures
+* Node Average utilization alerts 
+* Kyverno Policy violation alerts if any 
+
+### Health Checks:
+
+* HAProxy config includes HTTP probes to `/healthz` endpoint
+* Keepalived monitors HAProxy to maintain VIP
+* Liveness and Readiness probes
+
+
+---
+
+### Security and Compliance 
+
+* Day0 ready CIS benchmarked cluster 
+* Custom centralized Kyverno policy to make sure limits and request are set 
+* HPA compliance validation by setting maximum number of pods to scale 
+* Github signed commits. So no manual commits will be synced by argocd 
+* Sonarqube for scanning the code for vulnerabilities and security leakages
+* Image signing once image created you can use tools like 
+
+### Further recommendations 
+* Developers should get rid of deployments and start using argocd rollouts so that they can use release strategy like canary or blue green.
 
 ---

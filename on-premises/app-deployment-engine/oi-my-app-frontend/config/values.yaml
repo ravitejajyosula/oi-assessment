@@ -1,0 +1,108 @@
+# Default values for apps-deployment-engine.
+global:
+  applications:
+    - name: frontend
+       hpa:
+          enabled: true
+          minReplicas: 3
+          maxReplicas: 6
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: 75
+            - type: Resource
+              resource:
+                name: memory
+                target:
+                  type: Utilization
+                  averageUtilization: 70
+      replicaCount: 3
+      labels:
+        tier: frontend
+      image:
+        repository: image-registry.oi.com/oi-frontend
+        tag: v1.9.0 # This will be replaced by the latest tag from the CI/CD pipeline after successful deployment of the frontend
+        pullPolicy: IfNotPresent
+      workingDir: /usr/src/app
+      command: ["npm", "run", "dev"]
+      args: []
+      env:
+        - name: BACKEND_URL
+          value: "http://oi-backend-api:8080"
+      containerPorts:
+        - containerPort: 5173
+      volumeMounts:
+        - name: frontend-node-modules
+          mountPath: /usr/src/app/node_modules
+      volumes:
+        - name: frontend-node-modules
+          emptyDir: {}
+      podAnnotations: {}
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      podSecurityContext: {}
+      containerSecurityContext: {}
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+      serviceAccountName: "" 
+      livenessProbe:
+        enabled: true
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 5173
+      readinessProbe:
+        enabled: true
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        timeoutSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3
+        httpGet:
+          path: /ready
+          port: 5173
+      service:
+        enabled: true
+        name: frontend
+        ports:
+          - port: 80
+            targetPort: 3000
+            protocol: TCP
+            name: http 
+        type: ClusterIP 
+        serviceAnnotations: {}
+        externalTrafficPolicy: Cluster 
+        sessionAffinity: None 
+      ingress:
+        enabled: true
+        className: nginx
+        rules:
+          - host: oi-my-app.oi.com
+            paths: 
+              - path: / # <<path>>
+                pathType: Prefix
+                backendServicePort: 80 
+                backendServicePortName: http 
+        ingressAnnotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+        tls:
+          - hosts:
+              - oi-my-app.oi.com
+            secretName: tls-secret-oi-my-app-oi-com 
+        defaultBackend:
+          enabled: false
+          serviceName: default-404-page 
+          servicePort: 80 

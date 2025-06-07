@@ -1,0 +1,9 @@
+apiVersion: v2
+name: parent-argocd-app
+description: Helm chart for managing ArgoCD applications in an on-premises environment
+version: 0.2.0 
+appVersion: "15"
+dependencies:
+  - name: argocd-apps
+    version: "0.1.9"
+    repository: "https://github.oi.com/helm-charts/platform-charts"

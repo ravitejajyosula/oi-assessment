@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "postgres-chart.fullname" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "postgres-chart.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Values.global.service.name }}
+  replicas: {{ .Values.global.postgres.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "postgres-chart.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "postgres-chart.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgres
+          image: "{{ .Values.global.postgres.image.repository }}:{{ .Values.global.postgres.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.global.postgres.image.pullPolicy }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.global.postgres.db | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.global.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "postgres-chart.fullname" . }}-secret
+                  key: password
+            {{- if .Values.global.replication.enabled }}
+            - name: POSTGRES_REPLICATION_ROLE
+              value: {{ .Values.global.replication.role | quote }}
+            - name: POSTGRES_REPLICATION_USER
+              value: {{ .Values.global.replication.user | quote }}
+            - name: POSTGRES_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "postgres-chart.fullname" . }}-secret
+                  key: replication-password
+            {{- end }}
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-storage
+          {{- with .Values.global.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.global.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.global.livenessProbe.enabled }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.global.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.global.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.global.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.global.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.global.livenessProbe.failureThreshold }}
+            exec:
+              command: {{ toYaml .Values.global.livenessProbe.exec.command | nindent 14 }}
+          {{- end }}
+          {{- if .Values.global.readinessProbe.enabled }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.global.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.global.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.global.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.global.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.global.readinessProbe.failureThreshold }}
+            exec:
+              command: {{ toYaml .Values.global.readinessProbe.exec.command | nindent 14 }}
+          {{- end }}
+  volumeClaimTemplates: 
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes:
+          - ReadWriteOnce 
+        resources:
+          requests:
+            storage: {{ .Values.global.postgres.storageSize }}

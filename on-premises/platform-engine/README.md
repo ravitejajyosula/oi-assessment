@@ -106,7 +106,7 @@ terraform {
 ```
 
 2. We can deploy open source version Hashicorp consul in house and use the same for statement 
-   - We should have to maintain the consul and if you are not using for anything like service discovery 
+   - We should have to maintain the consul and if we are not using it for anything like service discovery 
 
 ##### Security and compliance 
 -  We will fetch credentials like Vcenter username, Password run time from vault and keep them as environment variables preventing them to store in state file

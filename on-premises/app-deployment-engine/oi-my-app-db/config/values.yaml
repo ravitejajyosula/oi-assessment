@@ -1,0 +1,63 @@
+global:
+  namespace: "oi-my-app" 
+  postgres:
+    name: "postgres" 
+    replicas: 2
+    image:
+      repository: "postgres"
+      tag: "16.2" 
+      pullPolicy: "IfNotPresent"
+    db: "mydb" 
+    user: "myuser" 
+    storageSize: "10Gi" 
+  service:
+    name: "postgres-headless" 
+    port: 5432 
+    targetPort: 5432 
+
+  replication:
+    enabled: false 
+    role: "" 
+    user: "" 
+
+  vault:
+    enabled: true 
+    path: "secret/data/oi-my-app/postgres" 
+    replicationPath: "secret/data/oi-my-app/postgres-replication" 
+    role: "oi-my-app-role" 
+    initContainerImage: "hashicorp/vault:latest" 
+  vaultInitPod:
+    enabled: false
+    name: "vault-init-check" 
+    image: "hashicorp/vault:latest" 
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30 
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 6
+    exec:
+      command: ["pg_isready", "-U", "myuser", "-d", "mydb", "-h", "localhost"] 
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+    exec:
+      command: ["pg_isready", "-U", "myuser", "-d", "mydb", "-h", "localhost"] 
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  podSecurityContext: {} 
+  containerSecurityContext: {} 
+  nodeSelector: {} 
+  affinity: {} 
+  tolerations: [] 
+  imagePullSecrets: [] 

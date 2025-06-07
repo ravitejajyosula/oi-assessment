@@ -1,0 +1,16 @@
+{{- if .Values.global.vaultInitPod.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Values.global.vaultInitPod.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "postgres-chart.labels" . | nindent 4 }}
+spec:
+  restartPolicy: OnFailure # Typically for init/cleanup pods
+  containers:
+    - name: vault-check
+      image: {{ .Values.global.vaultInitPod.image }}
+      command: ["vault", "kv", "get", "{{ .Values.global.vault.path }}"]
+      # Add resource limits, securityContext if needed for this pod
+{{- end }}
