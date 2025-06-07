@@ -1,0 +1,161 @@
+---
+# roles/k8s_engine/tasks/main.yml
+
+- name: Initialize Kubernetes control plane on master1
+  command: >
+    kubeadm init
+    --control-plane-endpoint "{{ control_plane_endpoint }}"
+    --upload-certs
+    --pod-network-cidr {{ pod_network_cidr }}
+    --service-cidr {{ service_cidr }}
+  register: kubeadm_init_output
+  when: inventory_hostname == groups['masters'][0]
+  tags: 
+    - day0
+    - master1-steps 
+
+- name: Wait for kubeadm init to complete
+  wait_for:
+    port: 6443
+    delay: 10
+    timeout: 300
+    state: started
+  when: inventory_hostname == groups['masters'][0]
+  tags: 
+    - day0
+    - master1-steps
+
+- name: Extract join command for control plane (master1)
+  shell: |
+    kubeadm token create --print-join-command --certificate-key $(awk '/--certificate-key/ {print $3}' <<< "{{ kubeadm_init_output.stdout }}")
+  register: master_join_cmd
+  when: inventory_hostname == groups['masters'][0]
+  tags: 
+    - day0
+    - master1-steps 
+
+- name: Extract join command for workers (master1)
+  shell: |
+    kubeadm token create --print-join-command
+  register: worker_join_cmd
+  when: inventory_hostname == groups['masters'][0]
+  tags: 
+    - day0
+    - master1-steps 
+
+- name: Save join commands for other hosts (master1)
+  copy:
+    content: |
+      MASTER_JOIN_COMMAND={{ master_join_cmd.stdout }}
+      WORKER_JOIN_COMMAND={{ worker_join_cmd.stdout }}
+    dest: /tmp/k8s_join_commands.txt
+    mode: 0644
+  when: inventory_hostname == groups['masters'][0]
+  tags: 
+    - day0
+    - master1-steps 
+
+- name: Set kubeconfig for root (master1)
+  shell: |
+    mkdir -p $HOME/.kube
+    cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    chown $(id -u):$(id -g) $HOME/.kube/config
+  when: inventory_hostname == groups['masters'][0]
+  tags: 
+    - day0
+    - master1-steps 
+
+- name: Install Calico network plugin (master1)
+  shell: |
+    kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml
+  when: inventory_hostname == groups['masters'][0]
+  tags:
+    - master1-steps
+
+- name: Fetch join commands from master1
+  fetch:
+    src: /tmp/k8s_join_commands.txt
+    dest: /tmp/k8s_join_commands.txt
+    flat: yes
+  delegate_to: "{{ groups['masters'][0] }}"
+  tags: 
+    - day0
+    - control-plane-setup
+    - master1-steps
+
+- name: Wait for master1 API server
+  wait_for:
+    port: 6443
+    host: "{{ hostvars['master1']['ansible_host'] }}"
+    timeout: 60
+  when: inventory_hostname in groups['masters'] and inventory_hostname != groups['masters'][0]
+  tags: 
+    - day0
+    - control-plane-setup
+    
+- name: Read master join command into fact
+  shell: |
+    grep MASTER_JOIN_COMMAND /tmp/k8s_join_commands.txt | cut -d= -f2-
+  register: master_join_command
+  changed_when: false
+  when: inventory_hostname in groups['masters'] and inventory_hostname != groups['masters'][0]
+  tags: 
+    - day0
+    - control-plane-setup
+
+- name: Read worker join command into fact
+  shell: |
+    grep WORKER_JOIN_COMMAND /tmp/k8s_join_commands.txt | cut -d= -f2-
+  register: worker_join_command
+  changed_when: false
+  when: inventory_hostname in groups['workers']
+  tags:
+    - workers-setup
+
+- name: Join as control plane node
+  shell: "{{ master_join_command.stdout }} --v=5"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when: inventory_hostname in groups['masters'] and inventory_hostname != groups['masters'][0]
+  tags: 
+    - day0
+    - control-plane-setup
+
+- name: Join as worker node
+  shell: "{{ worker_join_command.stdout }} --v=5"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when: inventory_hostname in groups['workers']
+  tags: 
+    - day0
+    - workers-setup
+
+- name: Ensure kubelet is running
+  service:
+    name: kubelet
+    state: started
+    enabled: true
+  when: inventory_hostname in groups['masters'] or inventory_hostname in groups['workers']
+  tags:
+    - always
+
+- name: Wait for kubelet to be ready
+  wait_for:
+    port: 10250 # Kubelet API port
+    delay: 10
+    timeout: 300
+    state: started
+  when: inventory_hostname in groups['masters'] or inventory_hostname in groups['workers']
+  tags:
+    - always
+
+- name: Ensure kube-proxy is running
+  service:
+    name: kube-proxy
+    state: started
+    enabled: true
+  when: inventory_hostname in groups['masters'] or inventory_hostname in groups['workers']
+  tags:
+    - always
+
+## Other tasks can be added here as needed

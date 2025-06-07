@@ -1,0 +1,18 @@
+[
+  {
+    "name": "haproxy-vm-01",
+    "ipv4_address": "192.168.1.251",
+    "hostname": "haproxy-vm-01",
+    "cpu": 8,
+    "memory": 16384,
+    "group": "masters"
+  },
+  {
+    "name": "haproxy-vm-02",
+    "ipv4_address": "192.168.1.252",
+    "hostname": "haproxy-vm-02",
+    "cpu": 8,
+    "memory": 16384,
+    "group": "masters"
+  }
+]

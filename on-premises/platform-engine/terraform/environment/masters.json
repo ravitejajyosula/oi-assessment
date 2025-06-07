@@ -1,0 +1,26 @@
+[
+  {
+    "name": "master-vm-01",
+    "ipv4_address": "192.168.1.11",
+    "hostname": "master-vm-01",
+    "cpu": 16,
+    "memory": 32768,
+    "group": "masters"
+  },
+  {
+    "name": "master-vm-02",
+    "ipv4_address": "192.168.1.12",
+    "hostname": "master-vm-02",
+    "cpu": 16,
+    "memory": 32768,
+    "group": "masters"
+  },
+  {
+    "name": "master-vm-03",
+    "ipv4_address": "192.168.1.13",
+    "cpu": 16,
+    "memory": 32768,
+    "hostname": "master-vm-03",
+    "group": "masters"
+  }
+]

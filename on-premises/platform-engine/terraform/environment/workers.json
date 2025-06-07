@@ -1,0 +1,26 @@
+[
+  {
+    "name": "worker-vm-01",
+    "ipv4_address": "192.168.1.51",
+    "hostname": "worker-vm-01",
+    "cpu": 16,
+    "memory": 32768,
+    "group": "workers"
+  },
+  {
+    "name": "worker-vm-02",
+    "ipv4_address": "192.168.1.52",
+    "hostname": "worker-vm-02",
+    "cpu": 16,
+    "memory": 32768,
+    "group": "workers"
+  },
+    {
+    "name": "worker-vm-03",
+    "ipv4_address": "192.168.1.53",
+    "hostname": "worker-vm-02",
+    "cpu": 16,
+    "memory": 32768,
+    "group": "workers"
+  }
+]

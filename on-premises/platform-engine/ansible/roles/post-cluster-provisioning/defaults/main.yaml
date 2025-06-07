@@ -1,0 +1,4 @@
+argocd_tls_secret_name: "argocd-tls"
+cluster_domain: "argocd-production.openinnovation.ae"
+argocd_namespace: "argocd"
+# cluster_domain: "{{ ansible_fqdn }}"

@@ -1,0 +1,13 @@
+---
+- name: Kubernetes Cluster Setup using k8s_engine role
+  hosts: master1
+  become: yes
+  vars:
+    pod_network_cidr: "10.10.0.0/16"
+    service_cidr: "172.16.0.0/16"
+    control_plane_endpoint: "{{ hostvars[groups['masters'][0]]['ansible_host'] }}:6443"
+
+  roles:
+    - role: k8s_engine
+      tags:
+        - master1-steps

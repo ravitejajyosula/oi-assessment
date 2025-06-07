@@ -1,0 +1,85 @@
+
+- name: Ensure --authorization-mode includes Node,RBAC
+  tags:
+    - post-cluster-configuration
+    - day1
+  lineinfile:
+    path: "{{ kube_apiserver_manifest }}"
+    regexp: '^- --authorization-mode='
+    line: "    - --authorization-mode=Node,RBAC"
+
+
+- name: Ensure --anonymous-auth is set to false
+  tags:
+    - post-cluster-configuration
+    - day1
+  lineinfile:
+    path: "{{ kube_apiserver_manifest }}"
+    regexp: '^- --anonymous-auth='
+    line: "    - --anonymous-auth=false"
+
+
+- name: Ensure --insecure-port is set to 0
+  tags:
+    - post-cluster-configuration
+    - day1
+  lineinfile:
+    path: "{{ kube_apiserver_manifest }}"
+    regexp: '^- --insecure-port='
+    line: "    - --insecure-port=0"
+- name: Ensure --audit-log-path is set
+  tags:
+    - post-cluster-configuration
+    - day1
+  lineinfile:
+    path: "{{ kube_apiserver_manifest }}"
+    regexp: '^- --audit-log-path='
+    line: "    - --audit-log-path={{ audit_log_path }}"
+
+
+- name: Ensure encryption config file exists
+  tags:
+      - post-cluster-configuration
+      - day1
+  copy:
+    dest: /etc/kubernetes/encryption-config.yaml
+    content: |
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: EncryptionConfiguration
+      resources:
+        - resources:
+            - secrets
+          providers:
+            - aescbc:
+                keys:
+                - name: key1
+                  secret: {{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') | b64encode }}
+            - identity: {}
+
+- name: Ensure --encryption-provider-config is set
+  tags:
+    - post-cluster-configuration
+    - day1
+  lineinfile:
+    path: "{{ kube_apiserver_manifest }}"
+    regexp: '^- --encryption-provider-config='
+    line: "    - --encryption-provider-config=/etc/kubernetes/encryption-config.yaml"
+
+- name: Ensure etcd manifest file permissions are 644
+  tags:
+    - post-cluster-configuration
+    - day1
+  file:
+    path: "{{ etcd_manifest }}"
+    owner: root
+    group: root
+    mode: '0644'
+# Restart kubelet after all 
+- name: Restart kubelet
+  service:
+    name: kubelet
+    state: restarted
+  tags:
+    - post-cluster-configuration
+    - day1
+    

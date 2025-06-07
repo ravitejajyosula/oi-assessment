@@ -1,0 +1,233 @@
+
+- name: Deploy NGINX Ingress Controller
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ingress-nginx-controller
+        namespace: ingress-nginx
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: ingress-nginx
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: ingress-nginx
+          spec:
+            containers:
+              - name: controller
+                image: k8s.gcr.io/ingress-nginx/controller:v1.9.4
+                args:
+                  - /nginx-ingress-controller
+                  - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+                  - --election-id=ingress-controller-leader
+                  - --ingress-class=nginx
+                ports:
+                  - containerPort: 80
+                  - containerPort: 443
+- name: Create ArgoCD namespace
+  k8s:
+    api_version: v1
+    kind: Namespace
+    name: argocd
+    state: present
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+
+
+- name: Add Argo Helm repository
+  shell: |
+    helm repo add argo https://argoproj.github.io/argo-helm
+    helm repo update
+  args:
+    executable: /bin/bash
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+
+
+- name: Read secret from Vault
+  hashi_vault:
+    url: "{{ lookup('env', 'VAULT_URL') }}"
+    token: "{{ lookup('env', 'VAULT_TOKEN') }}"
+    secret: secret/data/cluster/tls
+  register: vault_secret
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+
+
+- name: Create TLS secret in Kubernetes
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ argocd_tls_secret_name }}"
+        namespace: "{{ argocd_namespace }}"
+      type: kubernetes.io/tls
+      data:
+        tls.crt: "{{ vault_secret.data.data['tls.crt'] | b64encode }}"
+        tls.key: "{{ vault_secret.data.data['tls.key'] | b64encode }}"
+  no_log: true
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+
+
+- template:
+    src: "{{ role_path }}/templates/argocd-install.yaml.j2"
+    dest: "{{ role_path }}/files/argocd-values.yaml"
+  register: argocd_install
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+
+- name: Install ArgoCD via Helm with Ingress & TLS
+  tags: 
+    - argocd-setup
+    - post-cluster-configuration
+    - day1
+  helm:
+    name: argocd
+    chart_ref: argo/argo-cd
+    release_namespace: argocd
+    create_namespace: true
+    values_file: "{{ role_path }}/files/argocd-values.yaml"
+
+
+## Ansible tasks for Metallb Deployment 
+
+## Metallb IPAddressPool creation 
+
+## BGP Peer for Metallb 
+
+## SVC for Ingress 
+- name: Create Metallb namespace
+  k8s:
+    api_version: v1
+    kind: Namespace
+    name: metallb-system
+    state: present
+  tags: 
+    - metallb-setup
+    - post-cluster-configuration
+    - day1
+- name: Add Metallb Helm repository
+  shell: |
+    helm repo add metallb https://metallb.github.io/metallb
+    helm repo update
+  args:
+    executable: /bin/bash
+  tags: 
+    - metallb-setup
+    - post-cluster-configuration
+    - day1
+- name: Install Metallb via Helm
+  tags: 
+    - metallb-setup
+    - post-cluster-configuration
+    - day1
+  helm:
+    name: metallb
+    chart_ref: metallb/metallb
+    release_namespace: metallb-system
+    create_namespace: true
+
+- name: Create Metallb IPAddressPool
+  tags: 
+    - metallb-setup
+    - post-cluster-configuration
+    - day1
+  k8s:
+    state: present
+    definition: |
+      apiVersion: metallb.io/v1beta1
+      kind: IPAddressPool
+      metadata:
+        name: metallb-ip-pool
+        namespace: metallb-system
+      spec:
+        addresses:
+          - 192.168.1.10/32
+      
+- name: Create Metallb BGP Peer
+  tags: 
+    - metallb-setup
+    - post-cluster-configuration
+    - day1
+  k8s:
+    state: present
+    definition: |
+      apiVersion: metallb.io/v1beta1
+      kind: BGPConfiguration
+      metadata:
+        name: metallb-bgp-config
+        namespace: metallb-system
+      spec:
+        peers:
+          - peerAddress: 192.168.1.1
+            peerASN: 64512
+            myASN: 64512
+            holdTime: 90s
+
+- name: Create Metallb L3 Advertisement
+  tags: 
+    - metallb-setup
+    - post-cluster-configuration
+    - day1
+  k8s:
+    state: present
+    definition: |
+      apiVersion: metallb.io/v1beta1
+      kind: L3Advertisement
+      metadata:
+        name: metallb-l3-advertisement
+        namespace: metallb-system
+      spec:
+        ipAddressPools:
+          - metallb-ip-pool
+
+- name: LoadBalancer Service for Ingress Controller
+  tags: 
+    - loadbalancer 
+    - post-cluster-configuration
+    - day1
+  k8s:
+    state: present
+    definition: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ingress-nginx-loadbalancer
+        namespace: ingress-nginx 
+          spec:
+            type: LoadBalancer
+            selector:
+              app.kubernetes.io/name: ingress-nginx     
+              app.kubernetes.io/part-of: ingress-nginx   
+            ports:
+              - name: http
+                protocol: TCP
+                port: 80
+                targetPort: http
+              - name: https
+                protocol: TCP
+                port: 443
+                targetPort: https
+            externalTrafficPolicy: Local

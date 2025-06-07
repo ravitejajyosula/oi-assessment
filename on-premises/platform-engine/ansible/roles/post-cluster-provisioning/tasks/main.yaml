@@ -1,0 +1,12 @@
+- include_tasks: k8s-hardening.yaml
+  tags:
+    - post-cluster-provisioning
+    - day1
+- include_tasks: argocd-setup.yaml
+  tags:
+    - post-cluster-provisioning
+    - day1
+- include_tasks: cluster-hardening.yaml
+  tags:
+    - post-cluster-provisioning
+    - day1
