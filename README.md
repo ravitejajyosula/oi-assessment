@@ -304,4 +304,5 @@ The tools will slightly change keeping approach constant.
 We will not use ansible for kubernetes cluster building instead we will use terraform or cloudformation for building EKS cluster.   
 
 All other Stack including monitoring parameters will look almost same.
+
 ---
