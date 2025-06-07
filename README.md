@@ -282,3 +282,26 @@ Hybrid stack is recommended because of
 * Developers should get rid of deployments and start using argocd rollouts so that they can use release strategy like canary or blue green.
 
 ---
+
+### Approach-2 Public Cloud Platform
+
+If we are using public cloud platforms AWS in this case. 
+
+The tools will slightly change keeping approach constant. 
+* Deployment Environment will change multiple Availability Zones (AZs) for high availability
+* Database Setup: Amazon RDS for PostgreSQL (managed service)
+* Key Components:
+  * **Control Plane**: EKS (managed by AWS, no manual VM provisioning)
+  * **Nodes** EC2 instances managed by EKS (Managed Node Groups)
+  * **CNI Plugin**: Amazon VPC CNI
+  * **Ingress**: AWS Load Balancer ALB 
+  * **Storage**: EBS 
+  * **Kubernetes Hardening**: EKS best practices, Kyverno (same)
+  * **Security & Policy Enforcement**: IAM along with Kyverno'
+  * **Monitoring**: AWS Cloud Watch and Fluent-bit
+  * **Secrets Management**: Secrets in AWS Secrets Manager/Parameter Store.
+#### DAY0 and Day1 
+We will not use ansible for kubernetes cluster building instead we will use terraform or cloudformation for building EKS cluster.   
+
+All other Stack including monitoring parameters will look almost same.
+---
